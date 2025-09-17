@@ -60,3 +60,4 @@ Deployment is handled through AWS CodeBuild via `buildspec.yml`. The build pipel
 4. Update the `lambda-cron-node-processor` function
 
 Adjust the CodeBuild project to reference this repository and ensure the Lambda execution role exposes R2, Upstash, and Cloudflare permissions.
+Test CI/CD pipeline trigger: Wed Sep 17 16:24:53 IST 2025
