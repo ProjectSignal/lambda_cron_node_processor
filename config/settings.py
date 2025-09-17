@@ -28,10 +28,6 @@ class Config:
 
         # Lambda runtime configuration
         self.PROCESSING_TIMEOUT = int(self._get_env("PROCESSING_TIMEOUT", default="30"))
-        self.WORKER_ID = self._get_env(
-            "WORKER_ID",
-            default=self._get_env("AWS_LAMBDA_FUNCTION_NAME", default="local-worker")
-        )
 
         # R2 Configuration
         self.R2_ACCESS_KEY_ID = self._get_env("R2_ACCESS_KEY_ID", required=True)
