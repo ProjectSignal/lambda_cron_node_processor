@@ -4,8 +4,8 @@ config/settings.py
 
 Centralised configuration for the cron node processor Lambda.
 The module exposes a singleton ``config`` instance that surfaces all external
-service credentials and runtime tuning values. MongoDB settings have been
-replaced by REST API configuration to align with the shared Brace architecture.
+service credentials and runtime tuning values. Configuration uses REST API
+endpoints to align with the shared Brace architecture.
 """
 
 import os
@@ -61,8 +61,6 @@ class Config:
 
         # Model configuration
         self.MODEL_CONFIGS = MODEL_CONFIGS
-        self.NODE_CONCURRENCY = int(self._get_env("NODE_CONCURRENCY", default="1"))
-
         # Lazy initialised helpers
         self._llm_manager: Optional[LLMManager] = None
 

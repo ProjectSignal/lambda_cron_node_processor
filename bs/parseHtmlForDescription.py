@@ -41,19 +41,30 @@ def _fetch_node(node_id: str):
     """Retrieve node data via the REST API."""
     # API Route: nodes.getById, Input: {"nodeId": node_id}, Output: {"data": {...}}
     response = api_client.get(f"nodes/{node_id}")
-    return response.get("data", response)
+    if isinstance(response, dict) and response.get("success") is False:
+        logger.error("Node fetch failed for %s: %s", node_id, response.get("message"))
+        return {}
+    if isinstance(response, dict) and "data" in response:
+        return response["data"]
+    return response
 
 
 def _update_node(node_id: str, payload: dict):
     """Persist node updates via the REST API."""
     # API Route: nodes.update, Input: payload, Output: {"success": bool}
-    return api_client.request("PATCH", f"nodes/{node_id}", payload)
+    response = api_client.request("PATCH", f"nodes/{node_id}", payload)
+    if isinstance(response, dict) and response.get("success") is False:
+        logger.error("Node update failed for %s: %s", node_id, response.get("message"))
+    return response
 
 
 def _delete_node(node_id: str):
     """Delete a node via the REST API."""
     # API Route: nodes.delete, Input: {"nodeId": node_id}, Output: {"success": bool}
-    return api_client.request("DELETE", f"nodes/{node_id}")
+    response = api_client.request("DELETE", f"nodes/{node_id}")
+    if isinstance(response, dict) and response.get("success") is False:
+        logger.error("Node delete failed for %s: %s", node_id, response.get("message"))
+    return response
 
 
 def _mark_node_error(node_id: str, error_message: str):
@@ -63,7 +74,10 @@ def _mark_node_error(node_id: str, error_message: str):
         "errorMessage": error_message,
     }
     # API Route: nodes.markError, Input: payload, Output: {"success": bool}
-    return api_client.request("POST", "nodes/mark-error", payload)
+    response = api_client.request("POST", "nodes/mark-error", payload)
+    if isinstance(response, dict) and response.get("success") is False:
+        logger.error("Failed to mark node %s as errored: %s", node_id, response.get("message"))
+    return response
 
 
 def _search_nodes_for_user(user_id: str, exclude_node_id: str):
@@ -74,6 +88,9 @@ def _search_nodes_for_user(user_id: str, exclude_node_id: str):
     }
     # API Route: nodes.searchByUser, Input: payload, Output: {"nodes": [...]}
     response = api_client.request("POST", "nodes/search-by-user", payload)
+    if isinstance(response, dict) and response.get("success") is False:
+        logger.error("Node search failed for user %s: %s", user_id, response.get("message"))
+        return []
     return response.get("nodes", [])
 
 # == ENV variables for Cloudflare - Use Lambda config ==
@@ -686,6 +703,20 @@ def normalize_education(education):
     return sorted(normalized, key=lambda x: x.get('school', ''))
 
 
+def normalize_simple_field(value):
+    """Normalize simple comparable values (strings, ints, dicts) for stable change detection."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        # Collapse whitespace and lowercase so cosmetic edits do not trigger reruns
+        return re.sub(r"\s+", " ", value).strip().lower()
+    try:
+        # Produce deterministic serialization for nested structures
+        return json.dumps(value, sort_keys=True, default=str)
+    except TypeError:
+        return str(value)
+
+
 def compare_fields(field1, field2, field_name):
     """Compare two fields with special handling for different field types."""
     if field_name == 'workExperience':
@@ -696,8 +727,8 @@ def compare_fields(field1, field2, field_name):
         # For simple dicts, do a string comparison of sorted JSON
         return json.dumps(field1, sort_keys=True) == json.dumps(field2, sort_keys=True)
     else:
-        # For simple fields like about and currentLocation
-        return field1 == field2
+        # For simple fields like about, bio, and currentLocation
+        return normalize_simple_field(field1) == normalize_simple_field(field2)
 
 
 def has_significant_changes(new_profile_info, existing_node):
@@ -714,7 +745,14 @@ def has_significant_changes(new_profile_info, existing_node):
         logger.info("Profile has not had description generated yet, proceeding with generation")
         return True, ["initial_generation"]
     
-    fields_to_compare = ["workExperience", "education", "currentLocation"]
+    fields_to_compare = [
+        "about",
+        "bio",
+        "linkedinHeadline",
+        "workExperience",
+        "education",
+        "currentLocation",
+    ]
     changed_fields = []
     
     for field in fields_to_compare:

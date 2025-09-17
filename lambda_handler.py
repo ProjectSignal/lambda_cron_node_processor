@@ -4,12 +4,13 @@ from typing import Any, Dict, Tuple
 
 from dotenv import load_dotenv
 
+# Load environment variables FIRST, before importing config
+load_dotenv('.env')
+load_dotenv('../.env')
+
 from config import config
 from logging_config import setup_logger
 from processor import NodeProcessor
-
-# Load environment variables for local execution
-load_dotenv()
 
 logger = setup_logger(__name__)
 

@@ -110,13 +110,23 @@ async def get_company_info(company_url: str = None, company_name: str = None) ->
             clean_url = company_url.split('?')[0]
             # API Route: webpages.getByUrl, Input: {"url": clean_url}, Output: {"data": {...}}
             response = api_client.get("webpages/by-url", params={"url": clean_url})
-            webpage_data = response.get("data") or response
+            if isinstance(response, dict) and response.get("success") is False:
+                logger.error("Company lookup failed for url %s: %s", clean_url, response.get("message"))
+            else:
+                if isinstance(response, dict) and "data" in response:
+                    webpage_data = response["data"]
+                else:
+                    webpage_data = response
 
         if not webpage_data and company_name:
             payload = {"name": company_name}
             # API Route: webpages.searchByName, Input: payload, Output: {"webpages": [...]}
             response = api_client.request("POST", "webpages/search", payload)
-            candidates = response.get("webpages", [])
+            if isinstance(response, dict) and response.get("success") is False:
+                logger.error("Company search failed for %s: %s", company_name, response.get("message"))
+                candidates = []
+            else:
+                candidates = response.get("webpages", [])
             best_match = None
             highest_similarity = 0
 

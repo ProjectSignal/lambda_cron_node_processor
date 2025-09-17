@@ -84,9 +84,13 @@ class NodeProcessor:
     async def _fetch_node(self, node_id: str, user_id: str) -> Dict[str, Any]:
         """Load node details from the REST API."""
         def _call_api() -> Dict[str, Any]:
-            # API Route: nodes.getById, Input: {"nodeId": node_id, "userId": user_id}, Output: {"data": {...}}
+            # API Route: nodes.getById, Input: {"nodeId": node_id, "userId": user_id}, Output: {"success": bool, "data": {...}}
             response = self.api.get(f"nodes/{node_id}", params={"userId": user_id})
-            return response.get("data", response)
+            if isinstance(response, dict) and response.get("success") is False:
+                raise RuntimeError(response.get("message") or "Node lookup failed")
+            if isinstance(response, dict) and "data" in response:
+                return response["data"]
+            return response
 
         return await asyncio.to_thread(_call_api)
 

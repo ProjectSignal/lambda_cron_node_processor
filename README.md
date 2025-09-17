@@ -6,8 +6,8 @@ Serverless worker that transforms scraped LinkedIn node payloads into enriched B
 
 ```json
 {
-  "nodeId": "<mongo-object-id-as-string>",
-  "userId": "<mongo-object-id-as-string>"
+  "nodeId": "<node-id-as-string>",
+  "userId": "<user-id-as-string>"
 }
 ```
 
