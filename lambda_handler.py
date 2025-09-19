@@ -49,10 +49,10 @@ async def _run(event: Dict[str, Any]) -> Dict[str, Any]:
     if not node_id or not user_id:
         return {
             "statusCode": 400,
-            "body": json.dumps({
+            "body": {
                 "success": False,
-                "error": "nodeId and userId required"
-            })
+                "error": "nodeId and userId required",
+            },
         }
 
     processor = _get_processor()
@@ -63,29 +63,41 @@ async def _run(event: Dict[str, Any]) -> Dict[str, Any]:
         logger.exception("Unhandled error while processing node %s", node_id)
         return {
             "statusCode": 500,
-            "body": json.dumps({
+            "body": {
                 "success": False,
                 "nodeId": node_id,
                 "userId": user_id,
-                "error": str(exc)
-            })
+                "error": str(exc),
+            },
         }
 
     success = bool(result.get("success"))
     status_code = 200 if success else result.get("statusCode", 500)
 
-    response_body = {
+    response_body: Dict[str, Any] = {
         "nodeId": node_id,
         "userId": user_id,
         "success": success,
-        "message": result.get("message", "Node processed successfully" if success else "Node processing failed"),
+        "message": result.get(
+            "message",
+            "Node processed successfully" if success else "Node processing failed",
+        ),
     }
-    if "details" in result:
-        response_body["details"] = result["details"]
+
+    passthrough_fields = (
+        "webpageIds",
+        "effectiveNodeId",
+        "deduplicated",
+        "skipped",
+        "details",
+    )
+    for field in passthrough_fields:
+        if field in result and result[field] is not None:
+            response_body[field] = result[field]
 
     return {
         "statusCode": status_code,
-        "body": json.dumps(response_body)
+        "body": response_body,
     }
 
 

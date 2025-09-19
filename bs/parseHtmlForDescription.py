@@ -505,6 +505,27 @@ def create_webpage_documents(profile_info):
     return profile_info
 
 
+def _collect_webpage_ids(profile_info):
+    """Return a de-duplicated list of webpageIds extracted from work experience."""
+    if not profile_info:
+        return []
+
+    webpage_ids = []
+    seen: set = set()
+    for experience in profile_info.get("workExperience", []) or []:
+        if not isinstance(experience, dict):
+            continue
+        webpage_id = experience.get("webpageId")
+        if not webpage_id:
+            continue
+        web_id_str = str(webpage_id)
+        if web_id_str in seen:
+            continue
+        seen.add(web_id_str)
+        webpage_ids.append(web_id_str)
+    return webpage_ids
+
+
 # ---------------------------------------------------------------------------------
 # Main Flow: Called by run_scrapper_openai / run_scrapper_claude
 # ---------------------------------------------------------------------------------
@@ -581,6 +602,15 @@ async def run_scraper_base(profileHTML, name, username, personId, userId, create
             # (6) Update older node in DB
             update_node_in_db(older_node_id, final_profile_info)
             logger.info(f"Duplicate handling complete for older node {older_node_id}")
+            return {
+                "success": True,
+                "deduplicated": True,
+                "effective_node_id": older_node_id,
+                "merged_from_node_id": str(personId),
+                "webpage_ids": _collect_webpage_ids(final_profile_info),
+                "profile": final_profile_info,
+                "skipped": False,
+            }
 
         else:
             # *** NON-DUPLICATE CASE ***
@@ -588,6 +618,8 @@ async def run_scraper_base(profileHTML, name, username, personId, userId, create
             # 1) If existing_node is None => first time => proceed with normal flow
             # 2) If existing_node is present => compare workExperience, education, etc.
             logger.info(f"no duplicate node found")
+            has_changes = False
+            changed_fields = []
             if existing_node:
                 # Compare relevant fields using the new comparison logic
                 has_changes, changed_fields = has_significant_changes(new_profile_info, existing_node)
@@ -596,7 +628,16 @@ async def run_scraper_base(profileHTML, name, username, personId, userId, create
                 # If no changes => exit
                 if not has_changes and not existing_node.get("error"):
                     logger.info("No significant changes found; skipping update.")
-                    return
+                    profile_source = existing_node or new_profile_info
+                    return {
+                        "success": True,
+                        "deduplicated": False,
+                        "effective_node_id": str(personId),
+                        "webpage_ids": _collect_webpage_ids(profile_source),
+                        "profile": profile_source,
+                        "skipped": True,
+                        "changed_fields": [],
+                    }
                 
                 if changed_fields:
                     logger.info(f"Changes detected in fields: {', '.join(changed_fields)}")
@@ -627,19 +668,37 @@ async def run_scraper_base(profileHTML, name, username, personId, userId, create
                 # Update node in DB
                 update_node_in_db(personId, final_profile_info)
                 logger.info(f"Non-duplicate node updated successfully.")
+                return {
+                    "success": True,
+                    "deduplicated": False,
+                    "effective_node_id": str(personId),
+                    "webpage_ids": _collect_webpage_ids(final_profile_info),
+                    "profile": final_profile_info,
+                    "skipped": False,
+                    "changed_fields": changed_fields if existing_node else ["initial_generation"],
+                }
             else:
                 logger.info("Skipping update as no changes or errors were found")
-                return
+                profile_source = existing_node or new_profile_info
+                return {
+                    "success": True,
+                    "deduplicated": False,
+                    "effective_node_id": str(personId),
+                    "webpage_ids": _collect_webpage_ids(profile_source),
+                    "profile": profile_source,
+                    "skipped": True,
+                    "changed_fields": [],
+                }
 
     except Exception as e:
         logger.error(f"Error in scraper process for node {personId}: {str(e)}")
         error_count += 1
-        
+        error_message = str(e)
         # Handle empty profile case using existing_node data
         if "Three or more profile keys are empty" in str(e):
             # Check if error already exists in the existing node data
             existing_error = existing_node.get("errorMessage", "") if existing_node else ""
-            
+
             if "Three or more profile keys are empty" in existing_error:
                 # Second occurrence - delete the node
                 try:
@@ -651,7 +710,6 @@ async def run_scraper_base(profileHTML, name, username, personId, userId, create
 
         # Original error handling with modification to store specific message
         try:
-            error_message = str(e)
             if "Three or more profile keys are empty" in error_message:
                 error_message = f"Empty profile detected: {error_message}"
 
@@ -661,7 +719,25 @@ async def run_scraper_base(profileHTML, name, username, personId, userId, create
 
         if error_count >= max_errors:
             logger.error(f"Max retries ({max_errors}) reached for {personId}")
-            raise
+            return {
+                "success": False,
+                "error": error_message,
+                "deduplicated": False,
+                "effective_node_id": str(personId),
+                "webpage_ids": [],
+                "profile": existing_node,
+                "skipped": False,
+            }
+
+        return {
+            "success": False,
+            "error": error_message,
+            "deduplicated": False,
+            "effective_node_id": str(personId),
+            "webpage_ids": [],
+            "profile": existing_node,
+            "skipped": False,
+        }
 
 
 def normalize_work_experience(work_exp):

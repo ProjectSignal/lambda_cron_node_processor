@@ -11,7 +11,7 @@ Serverless worker that transforms scraped LinkedIn node payloads into enriched B
 }
 ```
 
-Responses follow the shared platform pattern:
+Responses follow the shared platform pattern and now return a structured body (not a JSON string):
 
 ```json
 {
@@ -20,10 +20,19 @@ Responses follow the shared platform pattern:
     "nodeId": "...",
     "userId": "...",
     "success": true,
-    "message": "Node processed successfully"
+    "message": "Node processed successfully",
+    "webpageIds": ["webpage_001", "webpage_002"],
+    "effectiveNodeId": "...",
+    "deduplicated": false,
+    "skipped": false,
+    "details": {
+      "changedFields": ["workExperience", "education"]
+    }
   }
 }
 ```
+
+`effectiveNodeId` reflects the node that ultimately holds the profile (important when duplicate nodes are merged into an older record).
 
 ## Environment Variables
 

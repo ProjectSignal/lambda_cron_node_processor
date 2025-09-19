@@ -56,7 +56,7 @@ class NodeProcessor:
             profile_html = await self._download_file_from_r2(html_path)
 
         try:
-            await run_scraper_base(
+            scraper_result = await run_scraper_base(
                 profile_html,
                 node_data.get("name", username),
                 username,
@@ -65,7 +65,7 @@ class NodeProcessor:
                 created_at,
                 node_data,
             )
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover - defensive logging
             logger.exception("Processing failed for node %s", node_id)
             await self._mark_node_error(node_id=node_id, error_message=str(exc))
             return {
@@ -74,12 +74,56 @@ class NodeProcessor:
                 "message": str(exc),
             }
 
-        logger.info("Processing complete for node %s", node_id)
-        return {
+        scraper_result = scraper_result or {}
+        success = bool(scraper_result.get("success"))
+        webpage_ids = scraper_result.get("webpage_ids") or []
+        effective_node_id = scraper_result.get("effective_node_id", node_id)
+        deduplicated = bool(scraper_result.get("deduplicated"))
+        skipped = bool(scraper_result.get("skipped"))
+        changed_fields = scraper_result.get("changed_fields") or []
+        merged_from_node_id = scraper_result.get("merged_from_node_id")
+
+        if not success:
+            error_message = scraper_result.get("error", "Node processing failed")
+            logger.error(
+                "Processing result for node %s indicates failure: %s",
+                node_id,
+                error_message,
+            )
+            await self._mark_node_error(node_id=node_id, error_message=error_message)
+            return {
+                "success": False,
+                "statusCode": 500,
+                "message": error_message,
+                "webpageIds": webpage_ids,
+                "effectiveNodeId": effective_node_id,
+                "deduplicated": deduplicated,
+                "skipped": skipped,
+            }
+
+        logger.info("Processing complete for node %s", effective_node_id)
+
+        response: Dict[str, Any] = {
             "success": True,
             "statusCode": 200,
-            "message": "Node processed successfully",
+            "message": "Node processed successfully" if not skipped else "Node already up to date",
+            "webpageIds": webpage_ids,
+            "effectiveNodeId": effective_node_id,
+            "deduplicated": deduplicated,
+            "skipped": skipped,
         }
+
+        details: Dict[str, Any] = {}
+        if changed_fields:
+            details["changedFields"] = changed_fields
+        if merged_from_node_id:
+            details["mergedFromNodeId"] = merged_from_node_id
+        if deduplicated:
+            details.setdefault("note", "Node merged into existing profile")
+        if details:
+            response["details"] = details
+
+        return response
 
     async def _fetch_node(self, node_id: str, user_id: str) -> Dict[str, Any]:
         """Load node details from the REST API."""
