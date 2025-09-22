@@ -26,9 +26,6 @@ class Config:
         self.API_TIMEOUT_SECONDS = int(self._get_env("API_TIMEOUT_SECONDS", default="30"))
         self.API_MAX_RETRIES = int(self._get_env("API_MAX_RETRIES", default="3"))
 
-        # Lambda runtime configuration
-        self.PROCESSING_TIMEOUT = int(self._get_env("PROCESSING_TIMEOUT", default="30"))
-
         # R2 Configuration
         self.R2_ACCESS_KEY_ID = self._get_env("R2_ACCESS_KEY_ID", required=True)
         self.R2_SECRET_ACCESS_KEY = self._get_env("R2_SECRET_ACCESS_KEY", required=True)
