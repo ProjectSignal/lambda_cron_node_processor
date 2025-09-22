@@ -1,6 +1,10 @@
 from typing import Dict, Any
 import os
 
+# Note: This module uses os.getenv() directly instead of config instance
+# to avoid circular imports. Environment variables are loaded by settings.py
+# and made available through the config instance for other modules.
+
 # Model configurations
 MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
     "openai4o": {

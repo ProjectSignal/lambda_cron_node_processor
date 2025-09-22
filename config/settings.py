@@ -52,6 +52,13 @@ class Config:
         self.RAPID_API_KEY = self._get_env("RAPID_API_KEY")
         self.RAPID_API_HOST = self._get_env("RAPID_API_HOST")
 
+        # Additional AI service API keys
+        self.MISTRAL_API_KEY = self._get_env("MISTRAL_API_KEY")
+        self.GEMINI_API_KEY = self._get_env("GEMINI_API_KEY")
+        self.GROQ_API_KEY = self._get_env("GROQ_API_KEY")
+        self.DEEPSEEK_API_KEY = self._get_env("DEEPSEEK_API_KEY")
+        self.TOGETHERAI_API_KEY = self._get_env("TOGETHERAI_API_KEY")
+
         # Model configuration
         self.MODEL_CONFIGS = MODEL_CONFIGS
         # Lazy initialised helpers
@@ -73,6 +80,12 @@ class Config:
             "OPENAI_",
             "CLOUDFLARE_",
             "JINA_",
+            "MISTRAL_",
+            "GEMINI_",
+            "GROQ_",
+            "DEEPSEEK_",
+            "TOGETHERAI_",
+            "ANTHROPIC_",
             "BASE_API_URL",
             "INSIGHTS_API_KEY"
         )):
