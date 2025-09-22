@@ -1,19 +1,19 @@
 # Core packages
-botocore>=1.27.0
-python-dateutil>=2.8.0
+botocore>
+python-dateutil
 
 # HTML processing
-beautifulsoup4>=4.12.3
+beautifulsoup4
 
 # LLM packages
-litellm>=1.60.8
+litellm
 
 # Text processing
-fuzzywuzzy>=0.18.0
+fuzzywuzzy
 
 # Vector/Redis
-upstash-vector>=0.7.1
-upstash-redis>=1.2.0
+upstash-vector
+upstash-redis
 
 # Utilities
-requests>=2.25.0
+requests
