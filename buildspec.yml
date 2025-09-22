@@ -37,14 +37,6 @@ phases:
       - find . -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true
       - find . -name "tests" -type d -exec rm -rf {} + 2>/dev/null || true
       - find . -name "test" -type d -exec rm -rf {} + 2>/dev/null || true
-      # Remove problematic packages that can cause GLIBC compatibility issues
-      - echo "Removing fastuuid and other problematic native extensions..."
-      - rm -rf fastuuid* 2>/dev/null || true
-      - find . -name "*fastuuid*" -exec rm -rf {} + 2>/dev/null || true
-      # Remove problematic .so files that might cause GLIBC issues
-      - find . -name "*.so" -path "*/fastuuid/*" -delete 2>/dev/null || true
-      - rm -rf .git .gitignore README.md buildspec.yml
-
       # Create deployment package
       - echo "Creating ZIP deployment package..."
       - zip -r lambda-deployment-package.zip . -x "buildspec.yml" "README.md" ".git/*" ".gitignore"
