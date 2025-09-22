@@ -15,5 +15,5 @@ fuzzywuzzy
 upstash-vector
 upstash-redis
 
-code# Utilities
+
 requests
