@@ -1,35 +1,20 @@
 # Core packages
-boto3==1.36.5
+boto3>=1.36.5
 botocore>=1.27.0
 python-dateutil>=2.8.0
-python-dotenv==1.0.1
 
 # HTML processing
-beautifulsoup4==4.12.3
-lxml==5.3.0
+beautifulsoup4>=4.12.3
 
 # LLM packages
-openai==1.61.1
-litellm==1.60.8
-anthropic==0.45.0
+litellm>=1.60.8
 
 # Text processing
-fuzzywuzzy==0.18.0
-textblob==0.19.0
-ftfy==6.3.1
-emoji==2.14.1
-nltk==3.9.1
-regex==2024.11.6
+fuzzywuzzy>=0.18.0
 
 # Vector/Redis
-upstash-vector==0.7.1
-upstash-redis==1.2.0
-
-# ML packages
-scikit-learn==1.6.1
-pandas==2.2.3
+upstash-vector>=0.7.1
+upstash-redis>=1.2.0
 
 # Utilities
 requests>=2.25.0
-
-# Note: Excluded pyppeteer (browser automation) as it's not needed for Lambda processing
