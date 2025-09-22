@@ -4,6 +4,7 @@ python-dateutil
 
 # HTML processing
 beautifulsoup4
+lxml
 
 # LLM packages
 litellm
