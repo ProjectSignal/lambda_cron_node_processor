@@ -37,17 +37,22 @@ def _extract_ids(event: Dict[str, Any]) -> Tuple[str | None, str | None]:
 
     return event.get("nodeId"), event.get("userId")
 
+async def _finalize_response(response: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure network clients have time to close before response is returned."""
+    await asyncio.sleep(0.1)
+    return response
+
 async def _run(event: Dict[str, Any]) -> Dict[str, Any]:
     """Execute node processing for the supplied identifiers."""
     node_id, user_id = _extract_ids(event)
     if not node_id or not user_id:
-        return {
+        return await _finalize_response({
             "statusCode": 400,
             "body": {
                 "success": False,
                 "error": "nodeId and userId required",
             },
-        }
+        })
 
     processor = _get_processor()
 
@@ -55,7 +60,7 @@ async def _run(event: Dict[str, Any]) -> Dict[str, Any]:
         result = await processor.process(node_id=node_id, user_id=user_id)
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.exception("Unhandled error while processing node %s", node_id)
-        return {
+        return await _finalize_response({
             "statusCode": 500,
             "body": {
                 "success": False,
@@ -63,7 +68,7 @@ async def _run(event: Dict[str, Any]) -> Dict[str, Any]:
                 "userId": user_id,
                 "error": str(exc),
             },
-        }
+        })
 
     success = bool(result.get("success"))
     status_code = 200 if success else result.get("statusCode", 500)
@@ -89,10 +94,10 @@ async def _run(event: Dict[str, Any]) -> Dict[str, Any]:
         if field in result and result[field] is not None:
             response_body[field] = result[field]
 
-    return {
+    return await _finalize_response({
         "statusCode": status_code,
         "body": response_body,
-    }
+    })
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
