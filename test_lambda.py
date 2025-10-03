@@ -3,17 +3,18 @@
 import os
 import json
 import sys
-from lambda_handler import lambda_handler
 
 # Load environment variables from both local and parent .env files
-import sys
-sys.path.append('..')
+# sys.path.append('.')
 from dotenv import load_dotenv
 
 # Load from local .env first (higher priority)
 load_dotenv('.env')
-# Load from parent .env as fallback
-load_dotenv('../.env')
+
+# Now import lambda_handler after environment is set up
+from lambda_handler import lambda_handler
+# # Load from parent .env as fallback
+# load_dotenv('../.env')
 
 # Override with any hardcoded values if needed (for testing only)
 # os.environ["BASE_API_URL"] = "https://your-base-api-url.com"  # Uncomment to override

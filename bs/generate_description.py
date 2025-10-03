@@ -26,8 +26,6 @@ from logging_config import setup_logger
 from clients import get_clients
 
 # 2) Prompts
-from prompts.location import LOCATION_USER_PROMPT, stop_sequences as location_stop_sequences
-from prompts.wed import WED_USER_PROMPT, stop_sequences as wed_stop_sequences
 from prompts.canhelp import (
     CANHELP_USER_PROMPT,
     stop_sequences as canhelp_stop_sequences
@@ -173,24 +171,6 @@ def parse_python_list(output_str: str) -> List[str]:
     except (SyntaxError, ValueError):
         logger.error(f"Unable to parse output as Python list: {output_str}")
         return []
-
-
-def extract_unique_location_entities(location: Any) -> List[str]:
-    """
-    Extract unique location entities from the location string or dictionary.
-    Returns a list of unique location names.
-    """
-    unique_entities = []
-    if isinstance(location, dict):
-        for key in ['city', 'state', 'country']:
-            if location.get(key):
-                unique_entities.append(location[key].strip())
-    elif isinstance(location, str):
-        parts = [part.strip() for part in location.split(',')]
-        unique_entities.extend(part for part in parts if part)
-    
-    seen = set()
-    return [x for x in unique_entities if not (x in seen or seen.add(x))]
 
 
 # ---------------------------------------
@@ -393,90 +373,6 @@ async def process_canhelp_skills_with_descriptions(skills: List[str]) -> Dict[st
 
 
 # ---------------------------------------
-# WED Summaries
-# ---------------------------------------
-async def get_chat_completion_wed(combined_for_WED: Dict[str, Any]) -> str:
-    """
-    Generate a ~240-word single-paragraph summary of the person's work & education.
-    Appends lists of unique educational and work organizations afterwards.
-    """
-    llm = LLMManager()
-    try:
-        if not isinstance(combined_for_WED, dict):
-            logger.error("Input must be a dictionary")
-            return ""
-
-        required_fields = ["name", "workExperience", "education"]
-        # Check only for presence, not emptiness, as empty lists are valid
-        missing_fields = [field for field in required_fields if field not in combined_for_WED]
-        if missing_fields:
-            logger.error(f"Missing required fields: {missing_fields}")
-            # Allow proceeding even if some are missing, summary might be less useful
-            # return "" # Previous behavior
-
-        xml_data = json_to_xml(combined_for_WED)
-        if not xml_data:
-            logger.error("Failed to convert JSON to XML")
-            return ""
-
-        user_prompt = WED_USER_PROMPT.replace("{{profile}}", xml_data)
-        messages = [
-            {"role": "user", "content": user_prompt},
-        ]
-
-        response = await llm.get_completion(
-            provider=DEFAULT_LLM_PROVIDER,
-            messages=messages,
-            fallback=True,
-            stop=wed_stop_sequences
-        )
-        
-        response_content = response.choices[0].message.content + wed_stop_sequences[0]
-        output_match = re.search(r'<output>(.*?)</output>', response_content, re.DOTALL)
-        if output_match:
-            summary = output_match.group(1).strip()
-
-            # Extract unique education org names
-            education_orgs = set()
-            for edu in combined_for_WED.get("education", []):
-                if edu.get("school"):
-                    education_orgs.add(edu["school"].strip())
-
-            # Extract unique work org names
-            work_orgs = set()
-            for work in combined_for_WED.get("workExperience", []):
-                 if work.get("companyName"):
-                    work_orgs.add(work["companyName"].strip())
-
-            # Format the lists into markdown strings
-            education_str = ""
-            if education_orgs:
-                # Sort for consistent output
-                sorted_edu_orgs = sorted(list(education_orgs))
-                education_str = "\n\n**Education Institutions:**\n" + "\n".join([f"- {org}" for org in sorted_edu_orgs])
-
-            work_str = ""
-            if work_orgs:
-                 # Sort for consistent output
-                sorted_work_orgs = sorted(list(work_orgs))
-                work_str = "\n\n**Work Organizations:**\n" + "\n".join([f"- {org}" for org in sorted_work_orgs])
-
-            # Combine summary and formatted lists
-            final_output = summary + education_str + work_str
-            return final_output
-        else:
-            logger.warning("No <output> tag found in WED response. Cannot append organization lists.")
-            return "" # Return empty if no summary was generated initially
-
-    except Exception as e:
-        logger.error(f"Error in get_chat_completion_wed: {str(e)}")
-        # Adding traceback for better debugging
-        import traceback
-        logger.error(traceback.format_exc())
-        return ""
-
-
-# ---------------------------------------
 # Organizations
 # ---------------------------------------
 def parse_orgstring_xml(xml_content: str) -> List[Dict[str, Any]]:
@@ -577,31 +473,10 @@ async def generate_descriptions_litellm(profile_info: Dict[str, Any]) -> Dict[st
     profile_copy = profile_info.copy()
     tasks = []
 
-    # ---- Location Description Task ----
-    # unique_locations = extract_unique_location_entities(profile_copy.get('currentLocation'))
-    # if unique_locations:
-    #     location_task = asyncio.create_task(process_location_descriptions(unique_locations))
-    #     tasks.append(location_task)
-    # else:
-    #     location_task = None
-
     # ---- CanHelp Skills Task ----
     canhelp_task = asyncio.create_task(get_chat_completion_canhelp(profile_copy))
     tasks.append(canhelp_task)
 
-    # ---- Work & Education Description Task ----
-    # COMMENTED OUT: We are no longer using workAndEducationDescription
-    # combined_for_WED = {
-    #     'name': profile_copy.get('name', ''),
-    #     'headline': profile_copy.get('bio', ''),
-    #     'about': profile_copy.get('about', ''),
-    #     'workExperience': profile_copy.get('workExperience', []), 
-    #     'education': profile_copy.get('education', [])
-    # }
-    # wed_task = asyncio.create_task(get_chat_completion_wed(combined_for_WED))
-    # tasks.append(wed_task)
-    wed_task = None
-    
     # ---- Organization Strings Task ----
     org_entities = extract_entities(profile_copy)
     if org_entities:
@@ -616,18 +491,6 @@ async def generate_descriptions_litellm(profile_info: Dict[str, Any]) -> Dict[st
     # Process results safely
     task_index = 0
 
-    # Location Results
-    # if location_task:
-    #     location_result = results[task_index]
-    #     if isinstance(location_result, Exception):
-    #         logger.error(f"Location description task failed: {location_result}")
-    #         profile_copy['locationDescription'] = []
-    #     else:
-    #         profile_copy['locationDescription'] = location_result
-    #     task_index += 1
-    # else:
-    #     profile_copy['locationDescription'] = []
-
     # CanHelp Results
     canhelp_result = results[task_index]
     if isinstance(canhelp_result, Exception):
@@ -638,17 +501,6 @@ async def generate_descriptions_litellm(profile_info: Dict[str, Any]) -> Dict[st
         skill_descriptions = await process_canhelp_skills_with_descriptions(keywords)
         profile_copy['canHelpSkills'] = skill_descriptions
     task_index += 1
-
-    # WED Results
-    # COMMENTED OUT: We are no longer using workAndEducationDescription
-    # if wed_task:
-    #     wed_result = results[task_index]
-    #     if isinstance(wed_result, Exception):
-    #         logger.error(f"Work/Education description task failed: {wed_result}")
-    #         profile_copy['workAndEducationDescription'] = ""
-    #     else:
-    #         profile_copy['workAndEducationDescription'] = wed_result
-    #     task_index += 1
 
     # Organization Results
     if org_task:

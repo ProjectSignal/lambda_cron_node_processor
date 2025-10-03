@@ -18,7 +18,6 @@ from bs.db import upstash_index, get_or_create_webpage_document
 # Note: Upstash vector operations will now be handled via createVectors.py
 from bs.createVectors import (
     createDataCollectionUsingCanHelpSkills,
-    # createDataCollectionUsingLocation, # Commented out as per requirement
     normalize_text
 )
 # For vector upsert via Upstash
@@ -371,56 +370,7 @@ async def update_vector_stores(profile_info, person_id):
                 except Exception as e:
                     logger.error(f"Failed to upsert final skill batch: {str(e)}")
                     raise
-        
-        # Process locations
-        # locationOutput = createDataCollectionUsingLocation(profile_info)
-        # if locationOutput:
-        #     location_vectors = []
-        #     total_processed = 0
-        #     logger.info(f"Processing {len(locationOutput)} locations for person {person_id}")
-            
-        #     for item in locationOutput:
-        #         loc_name = item.get("locationName", "")
-        #         if not loc_name:
-        #             continue
-        #         vector_id = f"{str(person_id)}_{normalize_text(loc_name)}"
-        #         logger.info(f"Creating location vector - ID: {vector_id}, Location: {loc_name}")
-        #         vector_obj = Vector(
-        #             id=vector_id,
-        #             vector=item["embeddings"],
-        #             metadata={
-        #                 "locationName": item.get("locationName", ""),
-        #                 "locationDescription": item["locationDescription"],
-        #                 "personId": str(item["personId"]),
-        #                 "userId": str(item["userId"])
-        #             },
-        #             data=item["locationDescription"]
-        #         )
-        #         location_vectors.append(vector_obj)
-                
-        #         # Process batch if we've reached batch size
-        #         if len(location_vectors) >= BATCH_SIZE:
-        #             try:
-        #                 logger.info(f"Upserting batch of {len(location_vectors)} location vectors to Upstash")
-        #                 upstash_index.upsert(vectors=location_vectors, namespace="locations")
-        #                 total_processed += len(location_vectors)
-        #                 logger.info(f"Successfully upserted batch. Total processed: {total_processed}")
-        #                 location_vectors = []  # Clear the batch
-        #             except Exception as e:
-        #                 logger.error(f"Failed to upsert location batch: {str(e)}")
-        #                 raise
-            
-        #     # Process any remaining location vectors
-        #     if location_vectors:
-        #         try:
-        #             logger.info(f"Upserting final batch of {len(location_vectors)} location vectors to Upstash")
-        #             upstash_index.upsert(vectors=location_vectors, namespace="locations")
-        #             total_processed += len(location_vectors)
-        #             logger.info(f"Successfully upserted all {total_processed} locations to Upstash vector store")
-        #         except Exception as e:
-        #             logger.error(f"Failed to upsert final location batch: {str(e)}")
-        #             raise
-        
+
         return True
 
     except Exception as e:
